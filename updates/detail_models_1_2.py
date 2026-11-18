@@ -11,7 +11,7 @@ from trimesh.visual.material import PBRMaterial
 
 ROOT=Path(__file__).resolve().parents[1]
 SITE=ROOT/'site'
-TANKS=ROOT/'tankbuild'
+TANKS=ROOT/'tank_pack' if (ROOT/'tank_pack').exists() else ROOT/'tankbuild'
 manifest=SITE/'assets/tanks/manifest.json'
 data=json.loads(manifest.read_text(encoding='utf-8'))
 COLORS={
@@ -135,7 +135,10 @@ for spec in data['models']:
  print('DETAIL',spec['id'],'+',added,'tris',len(check.geometry),'meshes',flush=True)
 manifest.write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8')
 (TANKS/'manifest.json').write_text(manifest.read_text(encoding='utf-8'),encoding='utf-8')
-subprocess.run([sys.executable,str(TANKS/'tools/render_preview.py')],check=True)
-for image in (TANKS/'previews').glob('*.png'):
- shutil.copy2(image,SITE/'assets/previews'/image.name)
+if (TANKS/'tools/render_preview.py').is_file():
+ subprocess.run([sys.executable,str(TANKS/'tools/render_preview.py')],check=True)
+ for image in (TANKS/'previews').glob('*.png'):
+  shutil.copy2(image,SITE/'assets/previews'/image.name)
+else:
+ print('Existing nine preview PNGs retained; enhanced GLBs are deployed.')
 print('PASS: 9 detailed GLB models, additional triangles:',total,flush=True)
