@@ -113,6 +113,47 @@ jobs:
           node --check site/src/game.js
           node --check site/src/main.js
           node site/tests/smoke_intro_1_4.mjs
+      - name: Enable unrestricted weapons 1.5
+        shell: bash
+        run: |
+          cp updates/freeweapons_1_5.js site/src/freeweapons.js
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('site/src/main.js')
+          s=p.read_text(encoding='utf-8')
+          assert "import {installIntro} from './intro.js';" in s
+          assert "installIntro(g);g.start();" in s
+          s=s.replace("import {installIntro} from './intro.js';", "import {installIntro} from './intro.js';\nimport {installFreeWeapons} from './freeweapons.js';",1)
+          s=s.replace("installIntro(g);g.start();","installIntro(g);installFreeWeapons(g);g.start();",1)
+          s=s.replace("version:'1.4.0'","version:'1.5.0'",1)
+          p.write_text(s,encoding='utf-8')
+          p=Path('site/src/intro.js')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace("СОБИРАЙ ЦВЕТНЫЕ МЕДАЛИ · ИСПОЛЬЗУЙ УСИЛЕНИЯ","ОРУЖИЕ ДОСТУПНО СРАЗУ · МЕДАЛИ — ДОПОЛНИТЕЛЬНО")
+          s=s.replace("ПРОЕДЬ ЧЕРЕЗ ЦВЕТНУЮ МЕДАЛЬ, ЧТОБЫ ПОЛУЧИТЬ ОРУЖИЕ","1–3 — ВЫБРАТЬ ОРУЖИЕ · ЛКМ — АТАКА")
+          s=s.replace("ОРУЖИЕ — ТОЛЬКО ПОСЛЕ ПОДБОРА ЦВЕТНОЙ МЕДАЛИ","ОРУЖИЕ ДОСТУПНО СРАЗУ · МЕДАЛИ НЕ ОБЯЗАТЕЛЬНЫ")
+          s=s.replace("ПОЕХАЛИ! · ПОДБИРАЙ МЕДАЛИ ДЛЯ АТАК","ПОЕХАЛИ! · ОРУЖИЕ ГОТОВО · ЛКМ — ОГОНЬ")
+          p.write_text(s,encoding='utf-8')
+          p=Path('site/src/combat.js')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace("if(!kind){if(this.g.now-this.messageThrottle>1.35){this.g.toast('СНАЧАЛА ПОДБЕРИТЕ МЕДАЛЬ');this.messageThrottle=this.g.now;}return false;}","if(!kind)return false;")
+          s=s.replace("'НЕТ БОЕПРИПАСОВ'","'ОРУЖИЕ ГОТОВО'")
+          p.write_text(s,encoding='utf-8')
+          p=Path('site/index.html')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('ПОДБЕРИТЕ МЕДАЛЬ, ЧТОБЫ СТРЕЛЯТЬ','МЕДАЛИ — ДОПОЛНИТЕЛЬНЫЕ УСИЛЕНИЯ')
+          s=s.replace('НЕТ БОЕПРИПАСОВ','ОРУЖИЕ ГОТОВО')
+          s=s.replace('1–3 / ЛКМ — МЕДАЛЬ','1–3 — ОРУЖИЕ · ЛКМ — АТАКА · F — МЕДАЛЬ')
+          s=s.replace('1–3 / ЛКМ · применить медаль','1–3 · оружие · ЛКМ · стрелять · F · медаль')
+          s=s.replace('1–3 / ЛКМ — медали','1–3 — оружие · ЛКМ — атака')
+          s=s.replace('./src/main.js?v=1.4','./src/main.js?v=1.5')
+          p.write_text(s,encoding='utf-8')
+          Path('site/VERSION.txt').write_text('1.5.0 — Free Weapons / unlimited ammunition\n',encoding='utf-8')
+          PY
+          node --check site/src/freeweapons.js
+          node --check site/src/main.js
+          node --check site/src/intro.js
+          node --check site/src/combat.js
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
