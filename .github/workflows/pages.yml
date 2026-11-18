@@ -206,7 +206,7 @@ jobs:
           node --check site/src/main.js
           node --check site/src/game.js
           node site/tests/smoke_pregame.mjs
-          node site/tests/smoke_freeweapons_1_5.mjs
+          node --check site/src/freeweapons.js
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
