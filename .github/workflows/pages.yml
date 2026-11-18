@@ -154,6 +154,59 @@ jobs:
           node --check site/src/main.js
           node --check site/src/intro.js
           node --check site/src/combat.js
+      - name: Remove forced intro and start tips 1.6
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('site/src/main.js')
+          s=p.read_text(encoding='utf-8')
+          assert s.count("import {installIntro} from './intro.js';")==1
+          assert s.count('installIntro(g);')==1
+          assert s.count('installFreeWeapons(g);g.start();')==1
+          s=s.replace("import {installIntro} from './intro.js';",'',1)
+          s=s.replace('installIntro(g);','',1)
+          s=s.replace('installFreeWeapons(g);g.start();',"""installFreeWeapons(g);
+            const launch=g.startRace.bind(g);
+            g.startRace=(...args)=>{
+              const savedToast=g.toast;
+              g.toast=()=>{};
+              try{launch(...args);}finally{g.toast=savedToast;}
+              g.mode='race';
+              g.fixedAcc=0;
+              g.controls?.clear?.();
+              g.mouseDx=0;g.mouseDy=0;
+              g.toasted=0;
+              const note=$('notice');
+              if(note){note.textContent='';note.classList.remove('visible');}
+            };
+            g.start();""",1)
+          s=s.replace("version:'1.5.0'","version:'1.6.0'",1)
+          p.write_text(s,encoding='utf-8')
+          p=Path('site/src/game.js')
+          s=p.read_text(encoding='utf-8')
+          s,n=re.subn(r"window\.addEventListener\('blur',\(\)=>\{this\.controls\.clear\(\);if\(this\.mode==='race'\)this\.pause\(\)\}\)", "window.addEventListener('blur',()=>{this.controls.clear()})",s)
+          assert n==1, 'Cannot find automatic blur/pause blocker'
+          p.write_text(s,encoding='utf-8')
+          p=Path('site/src/style.css')
+          p.write_text(p.read_text(encoding='utf-8')+"\n/* 1.6: No tutorial hints over active gameplay */\n#game-ui .control-hints,#game-ui .sr15-title,#game-ui .power-heading #power-help{display:none!important}\n",encoding='utf-8')
+          p=Path('site/index.html')
+          s=p.read_text(encoding='utf-8')
+          s,n=re.subn(r'(\./src/main\.js\?v=)[0-9.]+',r'\g<1>1.6',s)
+          assert n==1
+          s=re.sub(r'(\./src/style\.css\?v=)[0-9.]+',r'\g<1>1.6',s)
+          s=re.sub(r'<title>[^<]+</title>','<title>STEEL RUSH — Immediate Start 1.6</title>',s,count=1)
+          p.write_text(s,encoding='utf-8')
+          Path('site/VERSION.txt').write_text('1.6.0 — Immediate start / no forced intro or hints\n',encoding='utf-8')
+          assert 'installIntro(g)' not in Path('site/src/main.js').read_text()
+          assert 'g.startRace=(...args)' in Path('site/src/main.js').read_text()
+          print('STEEL RUSH 1.6: immediate driving, no countdown, no start hints, no auto-pause')
+          PY
+          node --check site/src/main.js
+          node --check site/src/game.js
+          node site/tests/smoke_pregame.mjs
+          node site/tests/smoke_freeweapons_1_5.mjs
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
