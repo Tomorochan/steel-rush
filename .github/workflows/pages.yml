@@ -80,6 +80,39 @@ jobs:
           p.write_text(src)
           PY
           node --check site/src/main.js
+      - name: Install cinematic start and fix unintended medal firing 1.4
+        shell: bash
+        run: |
+          cp updates/intro_1_4.js site/src/intro.js
+          cp updates/smoke_intro_1_4.mjs site/tests/smoke_intro_1_4.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('site/src/game.js')
+          src=p.read_text(encoding='utf-8')
+          old="window.addEventListener('mousedown',e=>{if((e.button===0||e.button===2)&&this.mode==='race'&&!e.target.closest?.('.power-slot'))this.combat?.useSelected(e.button===2);});"
+          new="this.canvas.addEventListener('mousedown',e=>{if((e.button===0||e.button===2)&&this.mode==='race'&&this.combat?.inventory?.length)this.combat.useSelected(e.button===2);});"
+          assert old in src, 'Expected old global firing handler'
+          p.write_text(src.replace(old,new,1),encoding='utf-8')
+          p=Path('site/src/main.js')
+          src=p.read_text(encoding='utf-8')
+          assert "import {installPregame} from './pregame.js';" in src
+          assert 'installShowroom(g);installModes(g);installPregame(g);g.start();console.info' in src
+          src=src.replace("import {installPregame} from './pregame.js';","import {installPregame} from './pregame.js';\nimport {installIntro} from './intro.js';",1)
+          src=src.replace('installShowroom(g);installModes(g);installPregame(g);g.start();console.info',
+                          'installShowroom(g);installModes(g);installPregame(g);installIntro(g);g.start();console.info',1)
+          src=src.replace("version:'1.3.0'","version:'1.4.0'",1)
+          p.write_text(src,encoding='utf-8')
+          p=Path('site/index.html')
+          src=p.read_text(encoding='utf-8')
+          src,n=re.subn(r'(./src/main[.]js[?]v=)[0-9.]+',r'\g<1>1.4',src)
+          assert n==1, 'Expected exactly one JS cache-buster'
+          p.write_text(src,encoding='utf-8')
+          PY
+          node --check site/src/intro.js
+          node --check site/src/game.js
+          node --check site/src/main.js
+          node site/tests/smoke_intro_1_4.mjs
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
