@@ -28,6 +28,23 @@ jobs:
           printf '{"type":"module"}\n' > site/package.json
           node --version
           node site/tests/smoke_mechanics.mjs
+      - name: Install 3D Tank Showroom 1.1
+        shell: bash
+        run: |
+          cp updates/showroom.js site/src/showroom.js
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('site/src/main.js')
+          src = p.read_text()
+          assert "import {Game} from './game.js';" in src
+          assert 'g.start();console.info' in src
+          src = src.replace("import {Game} from './game.js';", "import {Game} from './game.js';\nimport {installShowroom} from './showroom.js';", 1)
+          src = src.replace('g.start();console.info', 'installShowroom(g);g.start();console.info', 1)
+          src = src.replace("version:'1.0.0'", "version:'1.1.0'")
+          p.write_text(src)
+          PY
+          node --check site/src/showroom.js
+          node --check site/src/main.js
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
