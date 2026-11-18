@@ -115,12 +115,12 @@ def add_details(scene,original,meta):
 total=0
 for spec in data['models']:
  path=SITE/'assets/tanks'/spec['filename']
- original=trimesh.load(TANKS/'assets/tanks'/spec['filename'],file_type='glb',force='scene',process=False)
- scene=trimesh.load(path,file_type='glb',force='scene',process=False)
+ original=trimesh.load(TANKS/'assets/tanks'/spec['filename'],force='scene',process=False)
+ scene=trimesh.load(path,force='scene',process=False)
  added=add_details(scene,original,spec)
  assert added>=1000,(spec['id'],added)
  path.write_bytes(trimesh.exchange.gltf.export_glb(scene,include_normals=True))
- check=trimesh.load(path,file_type='glb',force='scene')
+ check=trimesh.load(path,force='scene')
  assert any(x.startswith('SR12_TurretYaw_') for x in check.graph.nodes_geometry)
  assert any(x.startswith('SR12_Hull_') for x in check.graph.nodes_geometry)
  count=sum(len(g.faces) for g in check.geometry.values())
