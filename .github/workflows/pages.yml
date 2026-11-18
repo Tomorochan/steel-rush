@@ -25,7 +25,9 @@ jobs:
         shell: bash
         run: |
           cat updates/v1_0_part_*.b64 | base64 --decode | tar -xJf -
-          node --experimental-default-type=module site/tests/smoke_mechanics.mjs
+          printf '{"type":"module"}\n' > site/package.json
+          node --version
+          node site/tests/smoke_mechanics.mjs
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
