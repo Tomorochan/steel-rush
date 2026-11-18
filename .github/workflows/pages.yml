@@ -45,6 +45,23 @@ jobs:
           PY
           node --check site/src/showroom.js
           node --check site/src/main.js
+      - name: Install race and practice modes 1.2
+        shell: bash
+        run: |
+          cp updates/modes_1_2.js site/src/modes.js
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('site/src/main.js')
+          src=p.read_text()
+          assert "import {installShowroom} from './showroom.js';" in src
+          assert 'installShowroom(g);g.start();console.info' in src
+          src=src.replace("import {installShowroom} from './showroom.js';","import {installShowroom} from './showroom.js';\nimport {installModes} from './modes.js';",1)
+          src=src.replace('installShowroom(g);g.start();console.info','installShowroom(g);installModes(g);g.start();console.info',1)
+          src=src.replace("version:'1.1.0'","version:'1.2.0'")
+          p.write_text(src)
+          PY
+          node --check site/src/modes.js
+          node --check site/src/main.js
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -54,6 +71,8 @@ jobs:
         run: python -m pip install -r build_requirements.txt
       - name: Generate tank and track assets
         run: python build_assets.py
+      - name: Add mechanical detail to all nine tanks
+        run: python updates/detail_models_1_2.py
       - name: Verify release assets
         run: |
           python - <<'PY'
@@ -64,7 +83,11 @@ jobs:
           assert len(list((root/'tracks/01_desert').glob('*.glb'))) == 4
           assert (root/'tracks/01_desert/track01_runtime.json').is_file()
           assert Path('site/index.html').is_file()
-          print('All release assets generated')
+          import trimesh
+          for path in (root/'tanks').glob('*.glb'):
+           scene=trimesh.load(path,file_type='glb',force='scene')
+           assert any(n.startswith('SR12_TurretYaw_') for n in scene.graph.nodes_geometry),path
+          print('All 9 detailed tank assets, track and previews generated')
           PY
       - uses: actions/configure-pages@v5
         with:
