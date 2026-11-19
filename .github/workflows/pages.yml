@@ -252,7 +252,9 @@ jobs:
           s=s.replace('installStartFlow(g);g.start();',"installStartFlow(g);const logo=document.querySelector('.logotype small');if(logo)logo.textContent='DESERT CIRCUIT / 1.8';g.start();",1)
           p.write_text(s,encoding='utf8')
           p=root/'src/game.js';s=p.read_text(encoding='utf8')
-          begin=s.index("this.toast(this.raceType==='practice'")
+          begin=s.find("this.toast(this.raceType==='practice'")
+          if begin<0: begin=s.find("this.toast('НА СТАРТ!');this.resume();")
+          assert begin>=0,'base start race message not found'
           end=s.index('this.resume();',begin)+len('this.resume();')
           s=s[:begin]+'/* StartFlow alone owns countdown; no start hints or pointer lock */'+s[end:]
           old="resume(){this.mode='race';$('pause').classList.add('hidden');this.canvas.requestPointerLock?.().catch(()=>{});}"
