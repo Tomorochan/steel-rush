@@ -368,6 +368,35 @@ jobs:
           node --check site/src/main.js
           node site/tests/smoke_mechanics.mjs
           node site/tests/smoke_1_10.mjs
+      - name: Install rival classes and player selection 1.11
+        shell: bash
+        run: |
+          base64 --decode updates/v1_11_patch.b64 | tar -xJf -
+          cp updates/pregame_1_11.js site/src/pregame.js
+          cp updates/smoke_pregame_1_11.mjs site/tests/smoke_pregame_1_11.mjs
+          cp updates/CHANGELOG_1_11_RU.md site/CHANGELOG_1_11_RU.md
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('site/src/main.js')
+          s=p.read_text(encoding='utf-8')
+          assert "version:'1.10.0'" in s
+          s=s.replace("version:'1.10.0'","version:'1.11.0'",1)
+          s=s.replace('DESERT CIRCUIT / 1.10','DESERT CIRCUIT / 1.11',1)
+          p.write_text(s,encoding='utf-8')
+          p=Path('site/index.html')
+          s=p.read_text(encoding='utf-8')
+          assert './src/main.js?v=1.10' in s
+          s=s.replace('./src/main.js?v=1.10','./src/main.js?v=1.11',1)
+          s=s.replace('./src/style.css?v=1.10','./src/style.css?v=1.11',1)
+          s=s.replace('STEEL RUSH 1.10 — Fixed Medals &amp; Muzzle Fire','STEEL RUSH 1.11 — Выбор танков и состав соперников',1)
+          p.write_text(s,encoding='utf-8')
+          Path('site/VERSION.txt').write_text('1.11.0 - Player tank selection / repeatable class-locked opponents\\n',encoding='utf-8')
+          PY
+          node --check site/src/pregame.js
+          node --check site/src/main.js
+          node site/tests/smoke_pregame_1_11.mjs
+          node site/tests/smoke_1_10.mjs
+          node site/tests/smoke_startflow_1_8.mjs
       - name: Verify release assets
         run: |
           python - <<'PY'
