@@ -236,6 +236,73 @@ jobs:
           node --check site/src/startflow.js
           node --check site/src/main.js
           node site/tests/smoke_startflow_1_7.mjs
+      - name: Repair frozen race start 1.8
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path('site')
+          p=root/'src/main.js';s=p.read_text(encoding='utf8')
+          s,n=re.subn(r'\s*const launch=g\.startRace\.bind\(g\);.*?installStartFlow\(g\);g\.start\(\);','\n  installStartFlow(g);g.start();',s,count=1,flags=re.S)
+          assert n==1,'conflicting 1.6 launch override missing'
+          s=s.replace("version:'1.7.0'","version:'1.8.0'",1)
+          assert "version:'1.8.0'" in s
+          s=s.replace('mode:g.mode,track:','mode:g.mode,speed:g.tank.forward,time:g.time,lastError:g.lastLoopError||null,track:',1)
+          s=s.replace('installStartFlow(g);g.start();',"installStartFlow(g);const logo=document.querySelector('.logotype small');if(logo)logo.textContent='DESERT CIRCUIT / 1.8';g.start();",1)
+          p.write_text(s,encoding='utf8')
+          p=root/'src/game.js';s=p.read_text(encoding='utf8')
+          begin=s.index("this.toast(this.raceType==='practice'")
+          end=s.index('this.resume();',begin)+len('this.resume();')
+          s=s[:begin]+'/* StartFlow alone owns countdown; no start hints or pointer lock */'+s[end:]
+          old="resume(){this.mode='race';$('pause').classList.add('hidden');this.canvas.requestPointerLock?.().catch(()=>{});}"
+          assert old in s
+          s=s.replace(old,"resume(){this.mode='race';$('pause').classList.add('hidden');this.canvas.focus?.({preventScroll:true});}",1)
+          assert 'loop(t){const dt=' in s
+          s=s.replace('loop(t){const dt=','loop(t){requestAnimationFrame(v=>this.loop(v));try{const dt=',1)
+          old="   requestAnimationFrame(v=>this.loop(v));\n }\n toast(s)"
+          assert old in s
+          s=s.replace(old,"""  }catch(err){
+               this.lastLoopError=(err?.stack||String(err)).slice(0,950);
+               const now=performance.now();
+               if(!this._lastLoopErrorAt||now-this._lastLoopErrorAt>2500){
+                 this._lastLoopErrorAt=now;
+                 console.error('[STEEL RUSH 1.8] Frame recovered instead of freezing:',err);
+               }
+               if(this.mode==='intro')this._sr17Installed?.skip?.();
+             }
+           }
+           toast(s)""",1)
+          p.write_text(s,encoding='utf8')
+          p=root/'src/startflow.js';s=p.read_text(encoding='utf8')
+          assert 'checkbox.checked=false;' in s
+          s=s.replace('checkbox.checked=false;','checkbox.checked=true;',1)
+          s=s.replace('Пролёт камеры перед стартом (необязательно)','Пролёт камеры перед стартом',1)
+          p.write_text(s,encoding='utf8')
+          p=root/'src/pregame.js';s=p.read_text(encoding='utf8')
+          s,n=re.subn(r"game\.toast\?\.\(config\.type==='practice'.*?\);",'/* No start tutorial toast */',s,count=1)
+          assert n==1
+          p.write_text(s,encoding='utf8')
+          p=root/'src/style.css';p.write_text(p.read_text(encoding='utf8')+"\n/* 1.8: no tutorial prompts during races */\n#game-ui #power-help,#game-ui #power-active,#game-ui #sr14-guide,#game-ui .control-hints,#game-ui .sr15-title{display:none!important;}\n",encoding='utf8')
+          p=root/'index.html';s=p.read_text(encoding='utf8')
+          s,n=re.subn(r'(\./src/main\.js\?v=)[0-9.]+',r'\g<1>1.8',s);assert n==1
+          s=re.sub(r'(\./src/style\.css\?v=)[0-9.]+',r'\g<1>1.8',s)
+          s=re.sub(r'<title>[^<]+</title>','<title>STEEL RUSH 1.8 - Race Start Fix</title>',s,count=1)
+          p.write_text(s,encoding='utf8')
+          (root/'VERSION.txt').write_text('1.8.0 - Clean cinematic to race transition, resilient frames\n',encoding='utf8')
+          test=(root/'tests/smoke_startflow_1_7.mjs').read_text(encoding='utf8')
+          old="assert.equal(api.toggle.checked,false);pass('cinematic is opt-in, disabled by default');"
+          assert old in test
+          test=test.replace(old,"assert.equal(api.toggle.checked,true);pass('cinematic is ON by default');\n api.toggle.checked=false;",1)
+          (root/'tests/smoke_startflow_1_8.mjs').write_text(test,encoding='utf8')
+          print('1.8 applied: flyover ON, clean HUD, no forced mouse capture, RAF fail-safe')
+          
+          PY
+          node --check site/src/main.js
+          node --check site/src/game.js
+          node --check site/src/startflow.js
+          node --check site/src/pregame.js
+          node site/tests/smoke_startflow_1_8.mjs
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
