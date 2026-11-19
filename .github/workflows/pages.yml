@@ -355,6 +355,19 @@ jobs:
         run: python build_assets.py
       - name: Add mechanical detail to all nine tanks
         run: python updates/detail_models_1_2.py
+      - name: Fix GLB muzzle and medal hotkeys 1.10
+        shell: bash
+        run: |
+          base64 --decode updates/repair_combat_1_10.b64 | xz --decompress > updates/repair_combat_1_10.py
+          python updates/repair_combat_1_10.py site
+          cp updates/smoke_1_10.mjs site/tests/smoke_1_10.mjs
+          node --check site/src/renderer.js
+          node --check site/src/combat.js
+          node --check site/src/game.js
+          node --check site/src/freeweapons.js
+          node --check site/src/main.js
+          node site/tests/smoke_mechanics.mjs
+          node site/tests/smoke_1_10.mjs
       - name: Verify release assets
         run: |
           python - <<'PY'
