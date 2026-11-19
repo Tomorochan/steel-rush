@@ -305,6 +305,36 @@ jobs:
           node --check site/src/startflow.js
           node --check site/src/pregame.js
           node site/tests/smoke_startflow_1_8.mjs
+      - name: Fix real HUD null-reference freeze 1.8.1
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('site/src/pregame.js')
+          s=p.read_text(encoding='utf8')
+          old="  $('race-mode-label').textContent="
+          assert s.count(old)==1, 'Missing-label failure site must exist exactly once'
+          s=s.replace(old,"  const modeLabel=$('race-mode-label');if(modeLabel)modeLabel.textContent=",1)
+          p.write_text(s,encoding='utf8')
+          p=Path('site/src/main.js')
+          s=p.read_text(encoding='utf8')
+          assert "version:'1.8.0'" in s
+          s=s.replace("version:'1.8.0'","version:'1.8.1'",1)
+          s=s.replace('DESERT CIRCUIT / 1.8','DESERT CIRCUIT / 1.8.1',1)
+          p.write_text(s,encoding='utf8')
+          p=Path('site/index.html')
+          s=p.read_text(encoding='utf8')
+          assert './src/main.js?v=1.8' in s
+          s=s.replace('./src/main.js?v=1.8','./src/main.js?v=1.8.1',1)
+          s=s.replace('./src/style.css?v=1.8','./src/style.css?v=1.8.1',1)
+          s=s.replace('STEEL RUSH 1.8 - Race Start Fix','STEEL RUSH 1.8.1 - Race Start Fix',1)
+          p.write_text(s,encoding='utf8')
+          Path('site/VERSION.txt').write_text('1.8.1 - Fixed missing race-mode-label that halted the frame loop\n',encoding='utf8')
+          assert "if(modeLabel)modeLabel.textContent=" in Path('site/src/pregame.js').read_text()
+          print('HUD missing-element regression: PASS')
+          PY
+          node --check site/src/pregame.js
+          node --check site/src/main.js
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
