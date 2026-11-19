@@ -207,6 +207,35 @@ jobs:
           node --check site/src/game.js
           node site/tests/smoke_pregame.mjs
           node --check site/src/freeweapons.js
+      - name: Install reliable start flow 1.7
+        shell: bash
+        run: |
+          tar -xJf updates/startflow_1_7.tar.xz -C site
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('site/src/main.js')
+          s=p.read_text(encoding='utf-8')
+          assert "import {installFreeWeapons} from './freeweapons.js';" in s
+          assert "version:'1.6.0'" in s
+          assert s.count('g.start();')==1
+          s=s.replace("import {installFreeWeapons} from './freeweapons.js';",
+                      "import {installFreeWeapons} from './freeweapons.js';\\nimport {installStartFlow} from './startflow.js';",1)
+          s=s.replace('g.start();','installStartFlow(g);g.start();',1)
+          s=s.replace("version:'1.6.0'","version:'1.7.0'",1)
+          p.write_text(s,encoding='utf-8')
+          p=Path('site/index.html')
+          s=p.read_text(encoding='utf-8')
+          s,n=re.subn(r'(\\./src/main\\.js\\?v=)[\\d.]+',r'\\g<1>1.7',s)
+          assert n==1
+          s=re.sub(r'(\\./src/style\\.css\\?v=)[\\d.]+',r'\\g<1>1.7',s)
+          s=re.sub(r'<title>[^<]+</title>','<title>STEEL RUSH 1.7 - Reliable Start</title>',s,count=1)
+          p.write_text(s,encoding='utf-8')
+          Path('site/VERSION.txt').write_text('1.7.0 - Race without forced blocking; optional cinematic\\n',encoding='utf-8')
+          PY
+          node --check site/src/startflow.js
+          node --check site/src/main.js
+          node site/tests/smoke_startflow_1_7.mjs
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
