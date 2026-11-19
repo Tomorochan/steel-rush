@@ -1,0 +1,52 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import {CombatSystem} from '../src/combat.js';
+import {installFreeWeapons} from '../src/freeweapons.js';
+import {M4,loadGLB} from '../src/renderer.js';
+import {TANKS} from '../src/game.js';
+const callbacks=[];
+const elems=new Map();
+const $=id=>{if(!elems.has(id))elems.set(id,{textContent:'',innerHTML:'',style:{},addEventListener(){},querySelectorAll(){return[];},classList:{add(){},remove(){},toggle(){}}});return elems.get(id);};
+globalThis.window={addEventListener:(type,fn,capture)=>callbacks.push({type,fn,capture})};
+globalThis.document={getElementById:$,createElement:()=>({querySelectorAll(){return[];}})};
+globalThis.fetch=async url=>{const b=await fs.readFile(new URL(url,new URL('../',import.meta.url)));return {ok:true,arrayBuffer:async()=>b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength)}};
+const r={mesh:()=>({}),box:{},eye:[0,0,0],drawGlow(){},drawFaded(){},cube(){}};
+const assets=new Map();
+for(const t of TANKS){
+ const m=await loadGLB('./assets/tanks/'+t.id+'.glb',r);assets.set(t.id,m);
+ const base=M4.compose(M4.t(0,0,0),M4.ry(Math.PI));
+ const a=m.muzzlePoint(base,0,0),b=m.muzzlePoint(base,.7,0);
+ assert.ok(a&&a[1]>.9&&a[1]<3&&a[2]<-.95&&a[2]>-5.3,'GLB muzzle invalid '+t.id);
+ assert.ok(Math.hypot(a[0]-b[0],a[2]-b[2])>.35,'GLB muzzle does not rotate '+t.id);
+}
+const world={shortcuts:[],pointAt:()=>({x:0,y:0,z:0}),tangentAt:()=>({x:0,z:-1}),limitToCorridor:(x,z)=>({x,z}),surfaceAt:()=>({y:0,code:'ROAD'})};
+const t={x:10,y:2,z:5,yaw:.3,turret:.6,gunPitch:.07,hp:75,boost:100,forward:25};
+const b={x:60,y:2,z:-40,yaw:-.3,turretAim:.8,spec:TANKS.find(v=>v.id==='ger_tiger1'),medals:[],hp:120,aiPowerTimer:100,stun:0};
+const g={r,assets,world,tank:t,bots:[b],selected:TANKS.find(v=>v.id==='ussr_t34_76'),mode:'race',time:0,now:0,canvas:{addEventListener(){}},toast(){},updateUI(){},cameraShake:0};
+const c=new CombatSystem(g);g.combat=c;
+assert.deepEqual(c.inventory,[null,null,null]);
+for(const owner of [t,b]){
+ const yaw=owner===t?t.turret:b.turretAim,pitch=owner===t?t.gunPitch:0;
+ c.createShell(owner);
+ const m=assets.get(owner===t?g.selected.id:owner.spec.id);
+ const pt=m.muzzlePoint(M4.compose(M4.t(owner.x,owner.y,owner.z),M4.ry(owner.yaw),M4.ry(Math.PI)),yaw-owner.yaw,-pitch);
+ for(const [i,k] of ['x','y','z'].entries())assert.ok(Math.abs(c.projectiles.at(-1)[k]-pt[i])<1e-4,'shell detached from gun '+k);
+ assert.equal(c.effects.at(-1).kind,'muzzle');
+}
+c.collect('rocket',t);c.collect('turbo',t);c.collect('artillery',t);
+c.setSelection(0);assert.ok(c.useSelected());
+assert.deepEqual(c.inventory,[null,'turbo','artillery']);
+c.collect('shield',t);assert.deepEqual(c.inventory,['shield','turbo','artillery']);
+c.dropSelected(1);assert.deepEqual(c.inventory,['shield',null,'artillery']);
+c.reset();assert.deepEqual(c.inventory,[null,null,null]);
+const weapons=installFreeWeapons(g);
+const onkey=callbacks.find(x=>x.type==='keydown'&&x.capture).fn;
+const key=code=>onkey({code,repeat:false,preventDefault(){},stopImmediatePropagation(){}});
+c.collect('shield',t);c.collect('turbo',t);c.collect('repair',t);
+key('Digit2');assert.equal(t.turboTimer,3);assert.deepEqual(c.inventory,['shield',null,'repair']);
+key('Numpad1');assert.deepEqual(c.inventory,[null,null,'repair']);
+t.hp=30;key('Digit3');assert.deepEqual(c.inventory,[null,null,null]);
+key('Digit5');assert.equal(weapons.state.selected,1);
+g.time=10;const before=c.projectiles.length;assert.equal(weapons.fire(),true);assert.ok(c.projectiles.length>before,'free rocket firing');
+key('Digit6');assert.equal(weapons.state.selected,2);
+console.log('STEEL RUSH 1.10 PASS: 9 GLB muzzle sockets, player/bot shell attachment, fixed medal slots, keyboard controls, free weapons');
