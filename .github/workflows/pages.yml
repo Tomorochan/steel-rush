@@ -335,6 +335,15 @@ jobs:
           PY
           node --check site/src/pregame.js
           node --check site/src/main.js
+      - name: Restore compact HUD and control compatibility 1.9
+        shell: bash
+        run: |
+          cat updates/v1_9_patch.b64 | base64 --decode | tar -xJf -
+          python3 updates/compact_hud_1_9.py
+          python3 updates/smoke_hud_1_9.py
+          node --check site/src/game.js
+          node --check site/src/freeweapons.js
+          node --check site/src/main.js
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
